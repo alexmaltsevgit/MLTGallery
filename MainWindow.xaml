@@ -5,12 +5,13 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:MLTGallery"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800"
+		x:Name="window"
+        Title="MainWindow" Height="1000" Width="1400"
 		Loaded="OnLoad">
 	<DockPanel LastChildFill="True">
-		<Button DockPanel.Dock="Top" Background="AliceBlue" Height="50" Click="AddImage">Открыть директорию</Button>
+		<Button DockPanel.Dock="Top" Background="AliceBlue" Height="50" Click="OpenDirectory">Открыть директорию</Button>
 		<ScrollViewer VerticalScrollBarVisibility="Auto">
-		    <WrapPanel x:Name="wpImages"></WrapPanel>
+		    <WrapPanel x:Name="wpImages" HorizontalAlignment="Center"></WrapPanel>
 		</ScrollViewer>
 	</DockPanel>
 </Window>
