@@ -8,36 +8,62 @@ using System.IO;
 using System.Linq;
 using System.Windows.Input;
 using System.Threading;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using Ookii.Dialogs.Wpf;
 
 namespace MLTGallery
 {
   /// <summary>
   /// Логика взаимодействия для MainWindow.xaml
   /// </summary>
-  public partial class MainWindow : Window
+  public partial class MainWindow : INotifyPropertyChanged
   {
     private List<Image> _images = new List<Image>();
+    private readonly string[] _extensions = { ".jpg", ".jpeg", ".jpe", ".png", ".bmp" };
+    private int _comressionQuality = 60;
+
     private double _imgWidth;
-    private readonly Thickness _imgMargin = new Thickness(20);
-    private readonly string[] _extensions = { "jpg", "jpeg", "jpe", "png", "bmp" };
+    public double ImageWidth
+    {
+      get{ return _imgWidth; }
+      set
+      {
+        if (_imgWidth != value)
+        {
+          _imgWidth = value;
+          OnPropertyChanged();
+        }
+      }
+    }
+
+    private Thickness _imgMargin = new Thickness(20);
+    public double ImageMargin
+    {
+      get => _imgMargin.Right;
+      set => _imgMargin = new Thickness(value);
+    }
+
+    public event PropertyChangedEventHandler PropertyChanged;
+    private void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    {
+      PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 
     public MainWindow()
     {
       InitializeComponent();
+      DataContext = this;
+      ImageWidth = 300;
       PreviewMouseWheel += Window_PreviewMouseWheel;
       SizeChanged += Window_SizeChanged;
     }
 
-    private void OnLoad(object sender, RoutedEventArgs e)
-    {
-      SetItemWidth(300);
-    }
-
     private void OpenDirectory(object sender, RoutedEventArgs e)
     {
-      FolderBrowserDialog folderDialog = new FolderBrowserDialog();
+      VistaFolderBrowserDialog folderDialog = new VistaFolderBrowserDialog();
       var result = folderDialog.ShowDialog();
-      if (result == System.Windows.Forms.DialogResult.OK)
+      if ((bool)result)
       {
         new Thread(() => { AddAllImages(folderDialog.SelectedPath); }).Start();
       }
@@ -48,27 +74,30 @@ namespace MLTGallery
       DirectoryInfo dir = new DirectoryInfo(rootPath);
 
       DirectoryInfo[] subdirs = dir.GetDirectories();
-      foreach (var subdir in subdirs)
+      foreach (DirectoryInfo subdir in subdirs)
       {
         AddAllImages(subdir.FullName);
       }
 
       FileInfo[] files = dir.GetFiles();
-      foreach (var file in files)
+      foreach (FileInfo file in files)
       {
-        //if (extensions.Contains(file.Extension))
-        //{
-          AddImage(file.FullName);
-        //}
+        if (_extensions.Contains(file.Extension))
+        {
+          AddImage(file);
+        }
       }
     }
 
-    private void AddImage(string path)
+    private void AddImage(FileInfo file)
     {
-      Uri uri = new Uri(path);
-      BitmapImage src = new BitmapImage(uri);
-      src.Freeze();
-      Dispatcher.BeginInvoke(new Action(() => {
+      Uri uri = new Uri(file.FullName);
+      // compress image if too big
+      BitmapImage src = (file.Length < 1_000_000L) ?
+        Util.ImageLoader.GetBitmapImage(uri) :
+        Util.ImageLoader.GetCompressedBitmapImage(file.FullName, _comressionQuality);
+
+      Dispatcher.Invoke(new Action(() => {
         Image img = new Image
         {
           Source = src,
@@ -78,41 +107,6 @@ namespace MLTGallery
         _images.Add(img);
         wpImages.Children.Add(img);
       }));
-    }
-
-    private void AddImage(object sender, RoutedEventArgs e)
-    {
-      BitmapImage src;
-      try { src = GetBitmapImage(); }
-      catch { return; }
-
-      Image img = new Image
-      {
-        Source = src,
-        Margin = _imgMargin
-      };
-
-      src.Freeze();
-
-      _images.Add(img);
-      wpImages.Children.Add(img);
-    }
-
-    private BitmapImage GetBitmapImage()
-    {
-      OpenFileDialog fileDialog = new OpenFileDialog();
-      fileDialog.ShowDialog();
-
-      Uri uri = new Uri(fileDialog.FileName);
-      BitmapImage src = new BitmapImage(uri);
-
-      return src;
-    }
-
-    private void SetItemWidth(double value)
-    {
-      _imgWidth = value;
-      wpImages.ItemWidth = value;
     }
 
     private void Window_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -129,21 +123,19 @@ namespace MLTGallery
 
     private void ZoomIn()
     {
-      if (_imgWidth * 1.5 + _imgMargin.Right < GetWindow(window).ActualWidth) { SetItemWidth(_imgWidth * 1.5); }
+      if (ImageWidth * 1.5 + ImageMargin < GetWindow(window).ActualWidth) { ImageWidth *= 1.5; }
     }
 
     private void ZoomOut()
     {
-      if (_imgWidth > GetWindow(window).ActualWidth / 10) { SetItemWidth(_imgWidth / 1.5); }
+      if (ImageWidth > GetWindow(window).ActualWidth / 10) { ImageWidth /= 1.5; }
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-      double width = _imgWidth;
-      double margin = _imgMargin.Right;
-      if (width + margin > e.NewSize.Width)
+      if (ImageWidth + ImageMargin > e.NewSize.Width)
       {
-        SetItemWidth(e.NewSize.Width - margin);
+        ImageWidth = e.NewSize.Width - ImageMargin;
       }
     }
   }
