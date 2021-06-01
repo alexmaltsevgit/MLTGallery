@@ -7,6 +7,7 @@ using System.Windows.Media.Imaging;
 using System.IO;
 using System.Linq;
 using System.Windows.Input;
+using System.Threading;
 
 namespace MLTGallery
 {
@@ -15,16 +16,16 @@ namespace MLTGallery
   /// </summary>
   public partial class MainWindow : Window
   {
-    private List<Image> images = new List<Image>();
-    private double imgWidth;
-    private readonly Thickness imgMargin = new Thickness(20);
-    private readonly string[] extensions = { "jpg", "jpeg", "jpe", "png", "bmp" };
-    private bool isLoading = false;
+    private List<Image> _images = new List<Image>();
+    private double _imgWidth;
+    private readonly Thickness _imgMargin = new Thickness(20);
+    private readonly string[] _extensions = { "jpg", "jpeg", "jpe", "png", "bmp" };
 
     public MainWindow()
     {
       InitializeComponent();
       PreviewMouseWheel += Window_PreviewMouseWheel;
+      SizeChanged += Window_SizeChanged;
     }
 
     private void OnLoad(object sender, RoutedEventArgs e)
@@ -38,7 +39,7 @@ namespace MLTGallery
       var result = folderDialog.ShowDialog();
       if (result == System.Windows.Forms.DialogResult.OK)
       {
-        AddAllImages(folderDialog.SelectedPath);
+        new Thread(() => { AddAllImages(folderDialog.SelectedPath); }).Start();
       }
     }
 
@@ -51,13 +52,13 @@ namespace MLTGallery
       {
         AddAllImages(subdir.FullName);
       }
-      
-      string[] files = Directory.GetFiles(rootPath);
+
+      FileInfo[] files = dir.GetFiles();
       foreach (var file in files)
       {
         //if (extensions.Contains(file.Extension))
         //{
-          AddImage(file);
+          AddImage(file.FullName);
         //}
       }
     }
@@ -66,14 +67,17 @@ namespace MLTGallery
     {
       Uri uri = new Uri(path);
       BitmapImage src = new BitmapImage(uri);
-      Image img = new Image
-      {
-        Source = src,
-        Margin = imgMargin
-      };
+      src.Freeze();
+      Dispatcher.BeginInvoke(new Action(() => {
+        Image img = new Image
+        {
+          Source = src,
+          Margin = _imgMargin
+        };
 
-      images.Add(img);
-      wpImages.Children.Add(img);
+        _images.Add(img);
+        wpImages.Children.Add(img);
+      }));
     }
 
     private void AddImage(object sender, RoutedEventArgs e)
@@ -85,12 +89,12 @@ namespace MLTGallery
       Image img = new Image
       {
         Source = src,
-        Margin = imgMargin
+        Margin = _imgMargin
       };
 
       src.Freeze();
 
-      images.Add(img);
+      _images.Add(img);
       wpImages.Children.Add(img);
     }
 
@@ -107,7 +111,7 @@ namespace MLTGallery
 
     private void SetItemWidth(double value)
     {
-      imgWidth = value;
+      _imgWidth = value;
       wpImages.ItemWidth = value;
     }
 
@@ -125,12 +129,22 @@ namespace MLTGallery
 
     private void ZoomIn()
     {
-      if (imgWidth < Window.GetWindow(window).ActualWidth) { SetItemWidth(imgWidth * 1.5); }
+      if (_imgWidth * 1.5 + _imgMargin.Right < GetWindow(window).ActualWidth) { SetItemWidth(_imgWidth * 1.5); }
     }
 
     private void ZoomOut()
     {
-      if (imgWidth > 100) { SetItemWidth(imgWidth / 1.5); }
+      if (_imgWidth > GetWindow(window).ActualWidth / 10) { SetItemWidth(_imgWidth / 1.5); }
+    }
+
+    private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+      double width = _imgWidth;
+      double margin = _imgMargin.Right;
+      if (width + margin > e.NewSize.Width)
+      {
+        SetItemWidth(e.NewSize.Width - margin);
+      }
     }
   }
 };
