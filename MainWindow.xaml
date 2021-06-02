@@ -1,16 +1,20 @@
 ﻿<Window x:Class="MLTGallery.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:MLTGallery"
+        xmlns:wpftk="clr-namespace:WpfToolkit.Controls;assembly=VirtualizingWrapPanel"
         mc:Ignorable="d"
 		x:Name="window"
-        Title="MainWindow" Height="600" Width="1200">
-	<DockPanel LastChildFill="True">
-		<Button DockPanel.Dock="Top" Background="AliceBlue" Height="50" Click="OpenDirectory">Открыть директорию</Button>
-		<ScrollViewer VerticalScrollBarVisibility="Auto">
-		    <WrapPanel x:Name="wpImages" HorizontalAlignment="Center" ItemWidth="{Binding Path=ImageWidth}"></WrapPanel>
-		</ScrollViewer>
-	</DockPanel>
+        Title="MGallery" Height="600" Width="1200">
+    <DockPanel x:Name="imgView" LastChildFill="True">
+        <Button DockPanel.Dock="Top" Background="AliceBlue" Height="50" Click="OpenDirectory">Открыть директорию</Button>
+        <ListView>
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <wpftk:VirtualizingWrapPanel/>
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+        </ListView>
+    </DockPanel>
 </Window>

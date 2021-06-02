@@ -11,52 +11,33 @@ using System.Threading;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Ookii.Dialogs.Wpf;
+using MLTGallery.Models;
+using System.Windows.Data;
+using System.Windows.Media;
 
 namespace MLTGallery
 {
   /// <summary>
   /// Логика взаимодействия для MainWindow.xaml
   /// </summary>
-  public partial class MainWindow : INotifyPropertyChanged
+  public partial class MainWindow : Window
   {
-    private List<Image> _images = new List<Image>();
-    private readonly string[] _extensions = { ".jpg", ".jpeg", ".jpe", ".png", ".bmp" };
-    private int _comressionQuality = 60;
-
-    private double _imgWidth;
-    public double ImageWidth
-    {
-      get{ return _imgWidth; }
-      set
-      {
-        if (_imgWidth != value)
-        {
-          _imgWidth = value;
-          OnPropertyChanged();
-        }
-      }
-    }
-
-    private Thickness _imgMargin = new Thickness(20);
-    public double ImageMargin
-    {
-      get => _imgMargin.Right;
-      set => _imgMargin = new Thickness(value);
-    }
-
-    public event PropertyChangedEventHandler PropertyChanged;
-    private void OnPropertyChanged([CallerMemberName] string propertyName = null)
-    {
-      PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
+    private readonly MainWindowModel model = new MainWindowModel();
 
     public MainWindow()
     {
       InitializeComponent();
-      DataContext = this;
-      ImageWidth = 300;
+      DataContext = model;
+      Loaded += Window_Loaded;
       PreviewMouseWheel += Window_PreviewMouseWheel;
       SizeChanged += Window_SizeChanged;
+    }
+
+    private void Window_Loaded(object sender, RoutedEventArgs e)
+    {
+      ItemsControl itemsControl = GetChildOfType<ItemsControl>(imgView);
+      itemsControl.ItemsSource = model.CollectionView;
+      model.ImageSize = new Size(50, 50);
     }
 
     private void OpenDirectory(object sender, RoutedEventArgs e)
@@ -82,7 +63,7 @@ namespace MLTGallery
       FileInfo[] files = dir.GetFiles();
       foreach (FileInfo file in files)
       {
-        if (_extensions.Contains(file.Extension))
+        if (model.Extensions.Contains(file.Extension))
         {
           AddImage(file);
         }
@@ -95,17 +76,17 @@ namespace MLTGallery
       // compress image if too big
       BitmapImage src = (file.Length < 1_000_000L) ?
         Util.ImageLoader.GetBitmapImage(uri) :
-        Util.ImageLoader.GetCompressedBitmapImage(file.FullName, _comressionQuality);
+        Util.ImageLoader.GetCompressedBitmapImage(file.FullName, model.ComressionQuality);
 
       Dispatcher.Invoke(new Action(() => {
         Image img = new Image
         {
           Source = src,
-          Margin = _imgMargin
+          Margin = model.ImageMargin,
+          Stretch = Stretch.Uniform
         };
 
-        _images.Add(img);
-        wpImages.Children.Add(img);
+        model.AddItem(img);
       }));
     }
 
@@ -113,6 +94,7 @@ namespace MLTGallery
     {
       if (Keyboard.Modifiers != ModifierKeys.Control)
         return;
+      e.Handled = true;
 
       if (e.Delta > 0)
         ZoomIn();
@@ -123,20 +105,37 @@ namespace MLTGallery
 
     private void ZoomIn()
     {
-      if (ImageWidth * 1.5 + ImageMargin < GetWindow(window).ActualWidth) { ImageWidth *= 1.5; }
+      if (model.ImageSize.Width * 1.5 + model.ImageMargin.Right < GetWindow(window).ActualWidth)
+      {
+        model.ImageSize = new Size(model.ImageSize.Width * 1.5, model.ImageSize.Height);
+      }
     }
 
     private void ZoomOut()
     {
-      if (ImageWidth > GetWindow(window).ActualWidth / 10) { ImageWidth /= 1.5; }
+      if (model.ImageSize.Width > GetWindow(window).ActualWidth / 10)
+      {
+        model.ImageSize = new Size(model.ImageSize.Width / 1.5, model.ImageSize.Height);
+      }
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-      if (ImageWidth + ImageMargin > e.NewSize.Width)
+      if (model.ImageSize.Width + model.ImageMargin.Right > e.NewSize.Width)
       {
-        ImageWidth = e.NewSize.Width - ImageMargin;
+        model.ImageSize = new Size(e.NewSize.Width - model.ImageMargin.Right, model.ImageSize.Height);
       }
+    }
+
+    private static T GetChildOfType<T>(DependencyObject element) where T : DependencyObject
+    {
+      for (int i = 0; i < VisualTreeHelper.GetChildrenCount(element); i++)
+      {
+        var child = VisualTreeHelper.GetChild(element, i);
+        var result = (child as T) ?? GetChildOfType<T>(child);
+        if (result != null) return result;
+      }
+      return null;
     }
   }
 };
