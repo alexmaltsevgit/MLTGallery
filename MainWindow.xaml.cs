@@ -26,8 +26,8 @@ namespace MLTGallery
 
     public MainWindow()
     {
-      InitializeComponent();
       DataContext = model;
+
       Loaded += Window_Loaded;
       PreviewMouseWheel += Window_PreviewMouseWheel;
       SizeChanged += Window_SizeChanged;
@@ -37,7 +37,7 @@ namespace MLTGallery
     {
       ItemsControl itemsControl = GetChildOfType<ItemsControl>(imgView);
       itemsControl.ItemsSource = model.CollectionView;
-      model.ImageSize = new Size(50, 50);
+      model.ImageWidth = 300;
     }
 
     private void OpenDirectory(object sender, RoutedEventArgs e)
@@ -82,8 +82,7 @@ namespace MLTGallery
         Image img = new Image
         {
           Source = src,
-          Margin = model.ImageMargin,
-          Stretch = Stretch.Uniform
+          Margin = model.ImageMargin
         };
 
         model.AddItem(img);
@@ -105,25 +104,19 @@ namespace MLTGallery
 
     private void ZoomIn()
     {
-      if (model.ImageSize.Width * 1.5 + model.ImageMargin.Right < GetWindow(window).ActualWidth)
-      {
-        model.ImageSize = new Size(model.ImageSize.Width * 1.5, model.ImageSize.Height);
-      }
+      if (model.ImageWidth * 1.5 + model.ImageMargin.Right < GetWindow(window).ActualWidth) { model.ImageWidth *= 1.5; }
     }
 
     private void ZoomOut()
     {
-      if (model.ImageSize.Width > GetWindow(window).ActualWidth / 10)
-      {
-        model.ImageSize = new Size(model.ImageSize.Width / 1.5, model.ImageSize.Height);
-      }
+      if (model.ImageWidth > GetWindow(window).ActualWidth / 10) { model.ImageWidth /= 1.5; }
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-      if (model.ImageSize.Width + model.ImageMargin.Right > e.NewSize.Width)
+      if (model.ImageWidth + model.ImageMargin.Right > e.NewSize.Width)
       {
-        model.ImageSize = new Size(e.NewSize.Width - model.ImageMargin.Right, model.ImageSize.Height);
+        model.ImageWidth = e.NewSize.Width - model.ImageMargin.Right;
       }
     }
 

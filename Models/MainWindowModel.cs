@@ -20,11 +20,11 @@ namespace MLTGallery.Models
     public string[] Extensions { get; } = { ".jpg", ".jpeg", ".jpe", ".png", ".bmp" };
 
     public int ComressionQuality { get => comressionQuality; set => SetField(ref comressionQuality, value); }
-    public Size ImageSize { get => imageSize; set => SetField(ref imageSize, value); }
+    public double ImageWidth { get => imageWidth; set => SetField(ref imageWidth, value); }
     public Thickness ImageMargin { get => imageMargin; set => SetField(ref imageMargin, value); }
 
     private int comressionQuality = 60;
-    private Size imageSize = new Size(300, 300);
+    private double imageWidth = 300;
     private Thickness imageMargin = new Thickness(20);
     public ICollectionView CollectionView { get; }
 

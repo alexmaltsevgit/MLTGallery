@@ -9,12 +9,14 @@
         Title="MGallery" Height="600" Width="1200">
     <DockPanel x:Name="imgView" LastChildFill="True">
         <Button DockPanel.Dock="Top" Background="AliceBlue" Height="50" Click="OpenDirectory">Открыть директорию</Button>
-        <ListView>
-            <ListView.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <wpftk:VirtualizingWrapPanel/>
-                </ItemsPanelTemplate>
-            </ListView.ItemsPanel>
-        </ListView>
+        <ScrollViewer>
+            <ItemsControl>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel IsItemsHost="True" HorizontalAlignment="Center" ItemWidth="{Binding ImageWidth}"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </ScrollViewer>
     </DockPanel>
 </Window>
