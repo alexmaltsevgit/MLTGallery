@@ -36,6 +36,7 @@ namespace MLTGallery.Util
           graphics.DrawImage(newImage, new Rectangle(System.Drawing.Point.Empty, newImage.Size), 0, 0,
             newImage.Width, newImage.Height, GraphicsUnit.Pixel, imageAttributes);
         }
+
         BitmapImage compressed = ToBitmapImage(new Bitmap(newImage));
         compressed.Freeze();
         return compressed;

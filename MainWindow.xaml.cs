@@ -22,12 +22,13 @@ namespace MLTGallery
   /// </summary>
   public partial class MainWindow : Window
   {
-    private readonly MainWindowModel model = new MainWindowModel();
+    private readonly ImagePanelModel imagePanelModel = new ImagePanelModel();
+    private SmoothScrollViewerModel smoothScrollViewModel = new SmoothScrollViewerModel();
+    private Thread imageLoadingThread;
 
     public MainWindow()
     {
-      DataContext = model;
-
+      DataContext = this;
       Loaded += Window_Loaded;
       PreviewMouseWheel += Window_PreviewMouseWheel;
       SizeChanged += Window_SizeChanged;
@@ -35,18 +36,33 @@ namespace MLTGallery
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
+      imagePanel.DataContext = imagePanelModel;
       ItemsControl itemsControl = GetChildOfType<ItemsControl>(imgView);
-      itemsControl.ItemsSource = model.CollectionView;
-      model.ImageWidth = 300;
+      itemsControl.ItemsSource = imagePanelModel.CollectionView;
+      imagePanelModel.ImageWidth = 300;
+
+      scroll.DataContext = smoothScrollViewModel;
+      scroll.ScrollChanged += Scroll_ScrollChanged;
     }
 
     private void OpenDirectory(object sender, RoutedEventArgs e)
     {
       VistaFolderBrowserDialog folderDialog = new VistaFolderBrowserDialog();
       var result = folderDialog.ShowDialog();
+
+      if (imageLoadingThread != null && imageLoadingThread.IsAlive)
+        imageLoadingThread.Abort();
+
+      imagePanelModel.RemoveAllItems();
+
       if ((bool)result)
       {
-        new Thread(() => { AddAllImages(folderDialog.SelectedPath); }).Start();
+        imageLoadingThread =  new Thread(() => 
+        { 
+          AddAllImages(folderDialog.SelectedPath);
+        });
+
+        imageLoadingThread.Start();
       }
     }
 
@@ -63,7 +79,7 @@ namespace MLTGallery
       FileInfo[] files = dir.GetFiles();
       foreach (FileInfo file in files)
       {
-        if (model.Extensions.Contains(file.Extension))
+        if (imagePanelModel.Extensions.Contains(file.Extension))
         {
           AddImage(file);
         }
@@ -74,50 +90,65 @@ namespace MLTGallery
     {
       Uri uri = new Uri(file.FullName);
       // compress image if too big
-      BitmapImage src = (file.Length < 1_000_000L) ?
+      BitmapImage src = (file.Length < 1_000_000L || file.Extension == ".gif") ?
         Util.ImageLoader.GetBitmapImage(uri) :
-        Util.ImageLoader.GetCompressedBitmapImage(file.FullName, model.ComressionQuality);
+        Util.ImageLoader.GetCompressedBitmapImage(file.FullName, imagePanelModel.ComressionQuality);
 
       Dispatcher.Invoke(new Action(() => {
         Image img = new Image
         {
           Source = src,
-          Margin = model.ImageMargin
+          Margin = imagePanelModel.ImageMargin
         };
 
-        model.AddItem(img);
+        imagePanelModel.AddItem(img);
       }));
+    }
+
+    private void ShuffleImages(object sender, RoutedEventArgs e)
+    {
+      imagePanelModel.ShuffleItems();
     }
 
     private void Window_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-      if (Keyboard.Modifiers != ModifierKeys.Control)
-        return;
-      e.Handled = true;
+      switch (Keyboard.Modifiers)
+      {
+        case ModifierKeys.None:
+          if (e.Delta > 0) smoothScrollViewModel.ScrollUp(scroll);
+          else if (e.Delta < 0) smoothScrollViewModel.ScrollDown(scroll);
+          break;
 
-      if (e.Delta > 0)
-        ZoomIn();
-
-      else if (e.Delta < 0)
-        ZoomOut();
+        case ModifierKeys.Control:
+          e.Handled = true;
+          if (e.Delta > 0) ZoomIn();
+          else if (e.Delta < 0) ZoomOut();
+          break;
+      }
     }
 
     private void ZoomIn()
     {
-      if (model.ImageWidth * 1.5 + model.ImageMargin.Right < GetWindow(window).ActualWidth) { model.ImageWidth *= 1.5; }
+      double newWidth = imagePanelModel.ImageWidth * 1.5 + imagePanelModel.ImageMargin.Right;
+      if (newWidth < GetWindow(window).ActualWidth) { imagePanelModel.ImageWidth *= 1.5; }
     }
 
     private void ZoomOut()
     {
-      if (model.ImageWidth > GetWindow(window).ActualWidth / 10) { model.ImageWidth /= 1.5; }
+      if (imagePanelModel.ImageWidth > GetWindow(window).ActualWidth / 10) { imagePanelModel.ImageWidth /= 1.5; }
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-      if (model.ImageWidth + model.ImageMargin.Right > e.NewSize.Width)
+      if (imagePanelModel.ImageWidth + imagePanelModel.ImageMargin.Right > e.NewSize.Width)
       {
-        model.ImageWidth = e.NewSize.Width - model.ImageMargin.Right;
+        imagePanelModel.ImageWidth = e.NewSize.Width - imagePanelModel.ImageMargin.Right;
       }
+    }
+
+    private void Scroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+      smoothScrollViewModel.UpdateScrollInfo(e.VerticalOffset, e.ExtentHeight);
     }
 
     private static T GetChildOfType<T>(DependencyObject element) where T : DependencyObject
