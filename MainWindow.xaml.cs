@@ -23,7 +23,7 @@ namespace MLTGallery
   public partial class MainWindow : Window
   {
     private readonly ImagePanelModel imagePanelModel = new ImagePanelModel();
-    private SmoothScrollViewerModel smoothScrollViewModel = new SmoothScrollViewerModel();
+    private SmoothScrollViewerModel smoothScrollViewModel;
     private Thread imageLoadingThread;
 
     public MainWindow()
@@ -41,8 +41,7 @@ namespace MLTGallery
       itemsControl.ItemsSource = imagePanelModel.CollectionView;
       imagePanelModel.ImageWidth = 300;
 
-      scroll.DataContext = smoothScrollViewModel;
-      scroll.ScrollChanged += Scroll_ScrollChanged;
+      smoothScrollViewModel = new SmoothScrollViewerModel(ref scroll);
     }
 
     private void OpenDirectory(object sender, RoutedEventArgs e)
@@ -115,8 +114,8 @@ namespace MLTGallery
       switch (Keyboard.Modifiers)
       {
         case ModifierKeys.None:
-          if (e.Delta > 0) smoothScrollViewModel.ScrollUp(scroll);
-          else if (e.Delta < 0) smoothScrollViewModel.ScrollDown(scroll);
+          if (e.Delta > 0) smoothScrollViewModel.ScrollUp();
+          else if (e.Delta < 0) smoothScrollViewModel.ScrollDown();
           break;
 
         case ModifierKeys.Control:
@@ -129,8 +128,7 @@ namespace MLTGallery
 
     private void ZoomIn()
     {
-      double newWidth = imagePanelModel.ImageWidth * 1.5 + imagePanelModel.ImageMargin.Right;
-      if (newWidth < GetWindow(window).ActualWidth) { imagePanelModel.ImageWidth *= 1.5; }
+      if (imagePanelModel.ImageWidth * 1.5 + imagePanelModel.ImageMargin.Right < GetWindow(window).ActualWidth) { imagePanelModel.ImageWidth *= 1.5; }
     }
 
     private void ZoomOut()
@@ -144,11 +142,6 @@ namespace MLTGallery
       {
         imagePanelModel.ImageWidth = e.NewSize.Width - imagePanelModel.ImageMargin.Right;
       }
-    }
-
-    private void Scroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
-    {
-      smoothScrollViewModel.UpdateScrollInfo(e.VerticalOffset, e.ExtentHeight);
     }
 
     private static T GetChildOfType<T>(DependencyObject element) where T : DependencyObject

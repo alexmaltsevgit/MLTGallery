@@ -12,6 +12,7 @@ namespace MLTGallery.Models
 {
   public class SmoothScrollViewerModel : INotifyPropertyChanged
   {
+    private readonly ScrollViewer scroll;
     private double pointsToScroll;
     private double scrollbarHeight;
     private double verticalOffset;
@@ -22,33 +23,37 @@ namespace MLTGallery.Models
 
     public event PropertyChangedEventHandler PropertyChanged;
 
-    public SmoothScrollViewerModel()
+    public SmoothScrollViewerModel(ref ScrollViewer scroll)
     {
       PropertyChanged += SmoothScrollViewModel_PropertyChanged;
+
+      this.scroll = scroll;
+      scroll.DataContext = this;
+      scroll.ScrollChanged += Scroll_ScrollChanged;
     }
 
-    public void ScrollUp(ScrollViewer scroll)
+    public void ScrollUp()
     {
       scroll.ScrollToVerticalOffset(verticalOffset - pointsToScroll);
     }
 
-    public void ScrollDown(ScrollViewer scroll)
+    public void ScrollDown()
     {
       scroll.ScrollToVerticalOffset(verticalOffset + pointsToScroll);
     }
 
-    public void UpdateScrollInfo(double verticalOffset, double extentHeight)
+    private void Scroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-      VerticalOffset = verticalOffset;
-      ScrollbarHeight = extentHeight;
+      VerticalOffset = e.VerticalOffset;
+      ScrollbarHeight = e.ExtentHeight;
     }
 
-    public void SmoothScrollViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    private void SmoothScrollViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
     {
       switch (e.PropertyName)
       {
         case nameof(ScrollbarHeight):
-          double newPointsToScroll = scrollbarHeight * 0.002 + 10;
+          double newPointsToScroll = scrollbarHeight * 0.0005 + 60;
           PointsToScroll = newPointsToScroll;
           break;
       }
