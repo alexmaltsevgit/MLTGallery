@@ -32,6 +32,11 @@ namespace MLTGallery.Models
       scroll.ScrollChanged += Scroll_ScrollChanged;
     }
 
+    public void SetHeight(double height)
+    {
+      scroll.MinHeight = height;
+    }
+
     public void ScrollUp()
     {
       scroll.ScrollToVerticalOffset(verticalOffset - pointsToScroll);

@@ -48,7 +48,7 @@ namespace MLTGallery
           imageLoadingThread.Abort();
         imagePanelModel.RemoveAllItems();
 
-        imageLoadingThread =  new Thread(() =>
+        imageLoadingThread = new Thread(() =>
         {
           AddAllImages(folderDialog.SelectedPath);
         });
@@ -72,33 +72,9 @@ namespace MLTGallery
       {
         if (imagePanelModel.Extensions.Contains(file.Extension))
         {
-          AddImage(file);
+          imagePanelModel.AddItem(file);
         }
       }
-    }
-
-    private void AddImage(FileInfo file)
-    {
-      Uri uri = new Uri(file.FullName);
-      // compress image if too big
-      BitmapImage src = (file.Length < 1_000_000L || file.Extension == ".gif") ?
-        Util.ImageLoader.GetBitmapImage(uri) :
-        Util.ImageLoader.GetCompressedBitmapImage(file.FullName, imagePanelModel.ComressionQuality);
-
-      Dispatcher.Invoke(new Action(() => {
-        Image img = new Image
-        {
-          Source = src,
-          Margin = imagePanelModel.ImageMargin
-        };
-
-        imagePanelModel.AddItem(img);
-      }));
-    }
-
-    private void ShuffleImages(object sender, RoutedEventArgs e)
-    {
-      imagePanelModel.ShuffleItems();
     }
 
     private void Window_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -120,17 +96,21 @@ namespace MLTGallery
 
     private void ZoomIn()
     {
-      if (imagePanelModel.ImageWidth * 1.5 + imagePanelModel.ImageMargin.Right < GetWindow(window).ActualWidth)
+      double k = 1.5;
+      if (imagePanelModel.ImageWidth * k + imagePanelModel.ImageMargin.Right < GetWindow(window).ActualWidth)
       {
-        imagePanelModel.ImageWidth *= 1.5;
+        imagePanelModel.ImageWidth *= k;
+        imagePanelModel.RecalculateHeights(k);
       }
     }
 
     private void ZoomOut()
     {
+      double k = 1.5;
       if (imagePanelModel.ImageWidth > GetWindow(window).ActualWidth / 10)
       {
-        imagePanelModel.ImageWidth /= 1.5;
+        imagePanelModel.ImageWidth /= k;
+        imagePanelModel.RecalculateHeights(1/k);
       }
     }
 
@@ -151,6 +131,11 @@ namespace MLTGallery
         if (result != null) return result;
       }
       return null;
+    }
+
+    private void Render(object sender, RoutedEventArgs e)
+    {
+      imagePanelModel.Render(Dispatcher, 0);
     }
   }
 };

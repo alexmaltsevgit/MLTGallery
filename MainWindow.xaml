@@ -10,14 +10,13 @@
     <DockPanel LastChildFill="True">
         <StackPanel DockPanel.Dock="Top" HorizontalAlignment="Center" Orientation="Horizontal">
             <Button Background="AliceBlue" Height="50" Click="OpenDirectory">Открыть директорию</Button>
-            <Button Click="ShuffleImages">Перемешать</Button>
+            <Button Click="Render" Content="render"/>
         </StackPanel>
         <ScrollViewer x:Name="scroll">
             <ItemsControl x:Name="imagePanel">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel
-                            x:Name="wrap"
                             IsItemsHost="True"
                             HorizontalAlignment="Center"
                             ItemWidth="{Binding ImageWidth}"/>
