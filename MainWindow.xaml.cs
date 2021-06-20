@@ -17,12 +17,9 @@ using System.Windows.Media;
 
 namespace MLTGallery
 {
-  /// <summary>
-  /// Логика взаимодействия для MainWindow.xaml
-  /// </summary>
   public partial class MainWindow : Window
   {
-    private readonly ImagePanelModel imagePanelModel = new ImagePanelModel();
+    private ImagePanelModel imagePanelModel;
     private SmoothScrollViewerModel smoothScrollViewModel;
     private Thread imageLoadingThread;
 
@@ -36,11 +33,7 @@ namespace MLTGallery
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
-      imagePanel.DataContext = imagePanelModel;
-      ItemsControl itemsControl = GetChildOfType<ItemsControl>(imgView);
-      itemsControl.ItemsSource = imagePanelModel.CollectionView;
-      imagePanelModel.ImageWidth = 300;
-
+      imagePanelModel = new ImagePanelModel(ref imagePanel);
       smoothScrollViewModel = new SmoothScrollViewerModel(ref scroll);
     }
 
@@ -49,15 +42,14 @@ namespace MLTGallery
       VistaFolderBrowserDialog folderDialog = new VistaFolderBrowserDialog();
       var result = folderDialog.ShowDialog();
 
-      if (imageLoadingThread != null && imageLoadingThread.IsAlive)
-        imageLoadingThread.Abort();
-
-      imagePanelModel.RemoveAllItems();
-
       if ((bool)result)
       {
-        imageLoadingThread =  new Thread(() => 
-        { 
+        if (imageLoadingThread != null && imageLoadingThread.IsAlive)
+          imageLoadingThread.Abort();
+        imagePanelModel.RemoveAllItems();
+
+        imageLoadingThread =  new Thread(() =>
+        {
           AddAllImages(folderDialog.SelectedPath);
         });
 
@@ -128,17 +120,23 @@ namespace MLTGallery
 
     private void ZoomIn()
     {
-      if (imagePanelModel.ImageWidth * 1.5 + imagePanelModel.ImageMargin.Right < GetWindow(window).ActualWidth) { imagePanelModel.ImageWidth *= 1.5; }
+      if (imagePanelModel.ImageWidth * 1.5 + imagePanelModel.ImageMargin.Right < GetWindow(window).ActualWidth)
+      {
+        imagePanelModel.ImageWidth *= 1.5;
+      }
     }
 
     private void ZoomOut()
     {
-      if (imagePanelModel.ImageWidth > GetWindow(window).ActualWidth / 10) { imagePanelModel.ImageWidth /= 1.5; }
+      if (imagePanelModel.ImageWidth > GetWindow(window).ActualWidth / 10)
+      {
+        imagePanelModel.ImageWidth /= 1.5;
+      }
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-      if (imagePanelModel.ImageWidth + imagePanelModel.ImageMargin.Right > e.NewSize.Width)
+      if (imagePanelModel?.ImageWidth + imagePanelModel?.ImageMargin.Right > e.NewSize.Width)
       {
         imagePanelModel.ImageWidth = e.NewSize.Width - imagePanelModel.ImageMargin.Right;
       }

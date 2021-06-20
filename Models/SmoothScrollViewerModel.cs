@@ -12,16 +12,16 @@ namespace MLTGallery.Models
 {
   public class SmoothScrollViewerModel : INotifyPropertyChanged
   {
-    private readonly ScrollViewer scroll;
-    private double pointsToScroll;
-    private double scrollbarHeight;
-    private double verticalOffset;
+    public event PropertyChangedEventHandler PropertyChanged;
 
     public double PointsToScroll { get => pointsToScroll; set => SetField(ref pointsToScroll, value); }
     public double ScrollbarHeight { get => scrollbarHeight; set => SetField(ref scrollbarHeight, value); }
     public double VerticalOffset { get => verticalOffset; set => SetField(ref verticalOffset, value); }
 
-    public event PropertyChangedEventHandler PropertyChanged;
+    private readonly ScrollViewer scroll;
+    private double pointsToScroll;
+    private double scrollbarHeight;
+    private double verticalOffset;
 
     public SmoothScrollViewerModel(ref ScrollViewer scroll)
     {

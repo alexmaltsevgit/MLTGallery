@@ -7,7 +7,7 @@
         mc:Ignorable="d"
 		x:Name="window"
         Title="MGallery" Height="600" Width="1200">
-    <DockPanel x:Name="imgView" LastChildFill="True">
+    <DockPanel LastChildFill="True">
         <StackPanel DockPanel.Dock="Top" HorizontalAlignment="Center" Orientation="Horizontal">
             <Button Background="AliceBlue" Height="50" Click="OpenDirectory">Открыть директорию</Button>
             <Button Click="ShuffleImages">Перемешать</Button>
@@ -17,6 +17,7 @@
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel
+                            x:Name="wrap"
                             IsItemsHost="True"
                             HorizontalAlignment="Center"
                             ItemWidth="{Binding ImageWidth}"/>

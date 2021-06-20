@@ -16,8 +16,12 @@ namespace MLTGallery.Models
   {
     public event PropertyChangedEventHandler PropertyChanged;
 
+    private readonly ItemsControl Container;
+
     public ObservableCollection<Image> Items { get; } = new ObservableCollection<Image>();
     public string[] Extensions { get; } = { ".jpg", ".jpeg", ".jpe", ".png", ".bmp", ".gif" };
+
+    public int ItemsInRow { get; set; }
 
     public int ComressionQuality { get => comressionQuality; set => SetField(ref comressionQuality, value); }
     public double ImageWidth { get => imageWidth; set => SetField(ref imageWidth, value); }
@@ -26,11 +30,16 @@ namespace MLTGallery.Models
     private int comressionQuality = 60;
     private double imageWidth = 300;
     private Thickness imageMargin = new Thickness(20);
-    public ICollectionView CollectionView { get; }
 
-    public ImagePanelModel()
+    public ImagePanelModel(ref ItemsControl container)
     {
-      CollectionView = CollectionViewSource.GetDefaultView(Items);
+      PropertyChanged += ImagePanelModel_PropertyChanged;
+
+      Container = container;
+      Container.DataContext = this;
+      Container.ItemsSource = CollectionViewSource.GetDefaultView(Items);
+
+      Container.SizeChanged += Container_SizeChanged;
     }
 
     public void AddItem(Image item)
@@ -52,6 +61,27 @@ namespace MLTGallery.Models
         int randint = random.Next(0, count - 3);
         Items.Move(i, randint);
       }
+    }
+
+    private void Container_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+      RecalculateItemsInRow(ImageWidth, e.NewSize.Width);
+    }
+
+    private void ImagePanelModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+      switch (e.PropertyName)
+      {
+        case nameof(ImageWidth):
+          RecalculateItemsInRow(imageWidth, Container.Width);
+          break;
+      }
+    }
+
+    private void RecalculateItemsInRow(double itemWidth, double containerWidth)
+    {
+      ItemsInRow = (int)(containerWidth / itemWidth);
+      Console.WriteLine(ItemsInRow);
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
