@@ -72,7 +72,7 @@ namespace MLTGallery
       {
         if (imagePanelModel.Extensions.Contains(file.Extension))
         {
-          imagePanelModel.AddItem(file);
+          imagePanelModel.AddItem(Dispatcher, file);
         }
       }
     }
@@ -100,7 +100,7 @@ namespace MLTGallery
       if (imagePanelModel.ImageWidth * k + imagePanelModel.ImageMargin.Right < GetWindow(window).ActualWidth)
       {
         imagePanelModel.ImageWidth *= k;
-        imagePanelModel.RecalculateHeights(k);
+        imagePanelModel.ChangeHeight(k);
       }
     }
 
@@ -110,7 +110,7 @@ namespace MLTGallery
       if (imagePanelModel.ImageWidth > GetWindow(window).ActualWidth / 10)
       {
         imagePanelModel.ImageWidth /= k;
-        imagePanelModel.RecalculateHeights(1/k);
+        imagePanelModel.ChangeHeight(1/k);
       }
     }
 
@@ -122,20 +122,9 @@ namespace MLTGallery
       }
     }
 
-    private static T GetChildOfType<T>(DependencyObject element) where T : DependencyObject
-    {
-      for (int i = 0; i < VisualTreeHelper.GetChildrenCount(element); i++)
-      {
-        var child = VisualTreeHelper.GetChild(element, i);
-        var result = (child as T) ?? GetChildOfType<T>(child);
-        if (result != null) return result;
-      }
-      return null;
-    }
-
     private void Render(object sender, RoutedEventArgs e)
     {
-      imagePanelModel.Render(Dispatcher, 0);
+      imagePanelModel.Render(scroll.VerticalOffset);
     }
   }
 };

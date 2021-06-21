@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -27,7 +28,6 @@ namespace MLTGallery.Models
     private List<double> RowsHeights { get; } = new List<double>();
     private int ItemsInRow { get => (int)(Container.ActualWidth / imageWidth); }
 
-
     public string[] Extensions { get; } = { ".jpg", ".jpeg", ".jpe", ".png", ".bmp", ".gif" };
     public double VirtualHeight { get => virtualHeight; set => SetField(ref virtualHeight, value); }
     public double ImageWidth { get => imageWidth; set => SetField(ref imageWidth, value); }
@@ -41,7 +41,6 @@ namespace MLTGallery.Models
     private Thickness imageMargin = new Thickness(20);
     private int lastIndex = 0;
     public double virtualHeight = 0;
-    private Thread render;
 
     public ImagePanelModel(ref ItemsControl container)
     {
@@ -51,21 +50,21 @@ namespace MLTGallery.Models
       Container.ItemsSource = CollectionViewSource.GetDefaultView(Items);
     }
 
-    public void Render(Dispatcher dispatcher, double scrollpos)
+    public void Render(double scrollpos)
     {
       Thread render = new Thread(() =>
       {
-        var bounds = getNewBounds(scrollpos);
-        var itemsToRemove = bounds.left - LastIndex;
+        var (left, right) = GetNewBounds(scrollpos);
+        var itemsToRemove = left - LastIndex;
         RemoveInvisibleItems(itemsToRemove);
-        LastIndex = bounds.left;
+        LastIndex = left;
 
-        for (int i = bounds.left; i <= bounds.right; i++)
+        for (int i = left; i <= right; i++)
         {
           FileInfo file = Files.ElementAt(i);
           BitmapImage src = GetBitmapImage(ref file);
 
-          dispatcher.Invoke(new Action(() =>
+          Container.Dispatcher.Invoke(new Action(() =>
           {
             Image img = new Image
             {
@@ -81,19 +80,20 @@ namespace MLTGallery.Models
       render.Start();
     }
 
-    public void RecalculateHeights(double multiplier)
+    public void ChangeHeight(double multiplier)
     {
       for (int i = 0; i < RowsHeights.Count; i++)
         RowsHeights[i] *= multiplier;
       VirtualHeight *= multiplier;
     }
 
-    public void AddItem(FileInfo file)
+    public void AddItem(Dispatcher dispatcher, FileInfo file)
     {
       Files.AddLast(file);
       if (Files.Count % ItemsInRow == 0)
       {
         CalculateHeight(Files.Count - ItemsInRow, Files.Count - 1);
+        AppendWithPlaceholders(dispatcher, (int)RowsHeights[RowsHeights.Count - 1]);
       }
     }
 
@@ -144,9 +144,9 @@ namespace MLTGallery.Models
       return img;
     }
 
-    private (int left, int right) getNewBounds(double scrollpos)
+    private (int left, int right) GetNewBounds(double scrollpos)
     {
-      int rowToRender = getRowToRender(scrollpos);
+      int rowToRender = GetRowToRender(scrollpos);
       int middle = rowToRender * ItemsInRow;
       int left = middle - 30 >= 0 ?
         rowToRender * ItemsInRow - 30 :
@@ -156,7 +156,7 @@ namespace MLTGallery.Models
       return (left, right);
     }
 
-    private int getRowToRender(double scrollpos)
+    private int GetRowToRender(double scrollpos)
     {
       int rowToRender = 0;
       while (scrollpos > 0)
@@ -165,6 +165,32 @@ namespace MLTGallery.Models
         rowToRender++;
       }
       return rowToRender;
+    }
+
+    private void AppendWithPlaceholders(Dispatcher dispatcher, int height)
+    {
+      /*BitmapSource src = BitmapSource.Create(
+        (int)ImageWidth,
+        height,
+        96,
+        96,
+        System.Windows.Media.PixelFormats.Indexed1,
+        new BitmapPalette(new List<System.Windows.Media.Color> { System.Windows.Media.Colors.Transparent }),
+        new byte[(int)(ImageWidth * height / 8)],
+        (int)(ImageWidth / 8)
+      );*/
+
+      dispatcher.Invoke(() =>
+      {
+        BitmapImage placeholder = Util.ImageLoader.ToBitmapImage(Properties.Resources.placeholder);
+        Image img = new Image 
+        { 
+          Source = placeholder
+        };
+
+        for (int i = 0; i < ItemsInRow; i++)
+          Items.Add(img);
+      });
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
