@@ -2,18 +2,14 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media.Imaging;
-using System.Windows.Threading;
 
 namespace MLTGallery.Models
 {
@@ -26,74 +22,73 @@ namespace MLTGallery.Models
     private ObservableCollection<Image> Items { get; } = new ObservableCollection<Image>();
     private LinkedList<FileInfo> Files { get; } = new LinkedList<FileInfo>();
     private List<double> RowsHeights { get; } = new List<double>();
-    private int ItemsInRow { get => (int)(Container.ActualWidth / imageWidth); }
 
     public string[] Extensions { get; } = { ".jpg", ".jpeg", ".jpe", ".png", ".bmp", ".gif" };
-    public double VirtualHeight { get => virtualHeight; set => SetField(ref virtualHeight, value); }
-    public double ImageWidth { get => imageWidth; set => SetField(ref imageWidth, value); }
-    public Thickness ImageMargin { get => imageMargin; set => SetField(ref imageMargin, value); }
+    public double ImageWidth { get => _imageWidth; set => SetField(ref _imageWidth, value); }
+    public double ImageMargin { get => _imageMargin.Left; set => _imageMargin = new Thickness(value); }
 
-    private int ComressionQuality { get => comressionQuality; set => SetField(ref comressionQuality, value); }
-    private int LastIndex { get => lastIndex; set => SetField(ref lastIndex, value); }
+    public int ItemsInRow
+    {
+      get => (int)(Container.ActualWidth / (_imageWidth + ImageMargin * 2));
+      set => ImageWidth = Container.ActualWidth / value - ImageMargin * 2;
+    }
 
-    private int comressionQuality = 60;
-    private double imageWidth = 300;
-    private Thickness imageMargin = new Thickness(20);
-    private int lastIndex = 0;
-    public double virtualHeight = 0;
+    private int ComressionQuality { get => _comressionQuality; set => _comressionQuality = value; }
+    private int VirtualizedRowsCount { get => 25 / ItemsInRow; }
+
+    private int _comressionQuality = 60;
+    private double _imageWidth = 300;
+    private Thickness _imageMargin = new Thickness(20);
+
+    private double _oldScrollPos = -1;
+
+    public Thread RenderThread;
 
     public ImagePanelModel(ref ItemsControl container)
     {
-      PropertyChanged += ImagePanelModel_PropertyChanged;
       Container = container;
       Container.DataContext = this;
       Container.ItemsSource = CollectionViewSource.GetDefaultView(Items);
+
+      ItemsInRow = 3;
     }
 
     public void Render(double scrollpos)
     {
-      Thread render = new Thread(() =>
+      int middleRow = RowByScroll(scrollpos);
+      int oldRow = RowByScroll(_oldScrollPos);
+      if (middleRow == oldRow)
+        return;
+
+      RenderThread = new Thread(() =>
       {
-        var (left, right) = GetNewBounds(scrollpos);
-        var itemsToRemove = left - LastIndex;
-        RemoveInvisibleItems(itemsToRemove);
-        LastIndex = left;
+        (int left, int right) = GetBoundingRows(middleRow);
+        if (_oldScrollPos != -1)
+          RemoveInvisibleItems(middleRow - oldRow);
+        CalculatePaddings(left, right);
+        RenderFewRows(left, right);
 
-        for (int i = left; i <= right; i++)
-        {
-          FileInfo file = Files.ElementAt(i);
-          BitmapImage src = GetBitmapImage(ref file);
-
-          Container.Dispatcher.Invoke(new Action(() =>
-          {
-            Image img = new Image
-            {
-              Source = src,
-              Margin = ImageMargin
-            };
-
-            Items.Add(img);
-          }));
-        }
+        _oldScrollPos = scrollpos;
       });
 
-      render.Start();
+      RenderThread.Start();
     }
 
-    public void ChangeHeight(double multiplier)
+    /*public void MultiplyHeight(double multiplier)
     {
       for (int i = 0; i < RowsHeights.Count; i++)
         RowsHeights[i] *= multiplier;
       VirtualHeight *= multiplier;
-    }
+    }*/
 
-    public void AddItem(Dispatcher dispatcher, FileInfo file)
+    public void AddItem(FileInfo file)
     {
       Files.AddLast(file);
       if (Files.Count % ItemsInRow == 0)
       {
-        CalculateHeight(Files.Count - ItemsInRow, Files.Count - 1);
-        AppendWithPlaceholders(dispatcher, (int)RowsHeights[RowsHeights.Count - 1]);
+        int row = RowsHeights.Count;
+        double rowHeight = CalculateRowHeight(row);
+        RowsHeights.Add(rowHeight);
       }
     }
 
@@ -102,36 +97,42 @@ namespace MLTGallery.Models
       Files.Clear();
       Items.Clear();
       RowsHeights.Clear();
-      VirtualHeight = 0;
+
+      var padding = Container.Padding;
+      padding.Top = 0;
+      padding.Bottom = 0;
     }
 
-    private void CalculateHeight(int firstIndex, int lastIndex)
+    private double CalculateRowHeight(int row)
     {
       double localMaxHeight = 0;
-      for (int i = firstIndex; i < lastIndex; i++)
+      double ratio = 1;
+      for (int i = IndexByRow(row); i < IndexByRow(row + 1); i++)
       {
-        using (var imgStream = File.OpenRead(Files.ElementAt(i).FullName))
+        using (var fileStream = new FileStream(Files.ElementAt(i).FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (var image = System.Drawing.Image.FromStream(fileStream, false, false))
         {
-          var decoder = BitmapDecoder.Create(imgStream,
-            BitmapCreateOptions.IgnoreColorProfile,
-            BitmapCacheOption.None
-          );
-          double height = decoder.Frames[0].PixelHeight;
-          localMaxHeight = (height > localMaxHeight) ? height : localMaxHeight;
+          if (image.Height > localMaxHeight)
+          {
+            localMaxHeight = image.Height;
+            // Container item width / real item width
+            ratio = ImageWidth / image.Width;
+          }
         }
       }
-      RowsHeights.Add(localMaxHeight);
-      VirtualHeight += localMaxHeight;
+      double rowHeight = localMaxHeight * ratio;
+      return rowHeight;
     }
 
-    private void RemoveInvisibleItems(int offset)
+    private void RemoveInvisibleItems(int rowOffset)
     {
-      if (offset > 0)
-        for (int i = 0; i < offset; i++)
-          Items.RemoveAt(i);
+      int count = rowOffset * ItemsInRow;
+      if (rowOffset > 0)
+        for (int i = 0; i < count; i++)
+          Container.Dispatcher.Invoke(() => Items.RemoveAt(i));
       else
-        for (int i = Items.Count - 1; i > Items.Count - offset; i--)
-          Items.RemoveAt(i);
+        for (int i = Items.Count - 1; i > Items.Count - count; i--)
+          Container.Dispatcher.Invoke(() => Items.RemoveAt(i));
     }
 
     private BitmapImage GetBitmapImage(ref FileInfo file)
@@ -144,53 +145,92 @@ namespace MLTGallery.Models
       return img;
     }
 
-    private (int left, int right) GetNewBounds(double scrollpos)
+    private void RenderFewRows(int firstRow, int lastRow)
     {
-      int rowToRender = GetRowToRender(scrollpos);
-      int middle = rowToRender * ItemsInRow;
-      int left = middle - 30 >= 0 ?
-        rowToRender * ItemsInRow - 30 :
+      for (int row = firstRow; row <= lastRow; row++)
+        RenderOneRow(row);
+    }
+
+    private void RenderOneRow(int row)
+    {
+      int first = IndexByRow(row);
+      int last = IndexByRow(row + 1) - 1; // works if 1 item in row
+      for (int i = first; i <= last; i++)
+      {
+        FileInfo file = Files.ElementAt(i);
+        BitmapImage src = GetBitmapImage(ref file);
+
+        Container.Dispatcher.Invoke(new Action(() =>
+        {
+          Image img = new Image
+          {
+            Source = src,
+            Margin = new Thickness(ImageMargin)
+          };
+
+          Items.Add(img);
+        }));
+      }
+    }
+
+    private void CalculatePaddings(int topRow, int bottomRow)
+    {
+      double topPadding = 0;
+      for (int i = 0; i < topRow; i++)
+        topPadding += RowsHeights[i];
+
+      double bottomPadding = 0;
+      for (int i = RowsHeights.Count - 1; i > bottomRow; i--)
+        bottomPadding += RowsHeights[i];
+
+      Container.Dispatcher.Invoke(() =>
+      {
+        Thickness padding = Container.Padding;
+        padding.Top = topPadding;
+        padding.Bottom = bottomPadding;
+      });
+    }
+
+    private (int left, int right) GetBoundingRows(int middle)
+    {
+      int left = (middle - VirtualizedRowsCount > 0) ?
+        middle - VirtualizedRowsCount :
         0;
-      int right = middle + 30;
+      int right = (middle + VirtualizedRowsCount > RowByIndex(Files.Count - 1)) ?
+        middle + VirtualizedRowsCount :
+        RowByIndex(Files.Count - 1);
 
       return (left, right);
     }
 
-    private int GetRowToRender(double scrollpos)
+    private int RowByScroll(double scrollpos)
     {
       int rowToRender = 0;
-      while (scrollpos > 0)
+      while (scrollpos >= 0)
       {
         scrollpos -= RowsHeights.ElementAt(rowToRender);
         rowToRender++;
       }
+      rowToRender -= 1;
       return rowToRender;
     }
 
-    private void AppendWithPlaceholders(Dispatcher dispatcher, int height)
+    private int IndexByRow(int row)
     {
-      /*BitmapSource src = BitmapSource.Create(
-        (int)ImageWidth,
-        height,
-        96,
-        96,
-        System.Windows.Media.PixelFormats.Indexed1,
-        new BitmapPalette(new List<System.Windows.Media.Color> { System.Windows.Media.Colors.Transparent }),
-        new byte[(int)(ImageWidth * height / 8)],
-        (int)(ImageWidth / 8)
-      );*/
+      if (row < 0)
+        return 0;
+      if (row >= Math.Ceiling((double)(Files.Count / ItemsInRow)))
+        return Files.Count - 1;
+      return row * ItemsInRow;
+    }
 
-      dispatcher.Invoke(() =>
-      {
-        BitmapImage placeholder = Util.ImageLoader.ToBitmapImage(Properties.Resources.placeholder);
-        Image img = new Image 
-        { 
-          Source = placeholder
-        };
-
-        for (int i = 0; i < ItemsInRow; i++)
-          Items.Add(img);
-      });
+    private int RowByIndex(int index)
+    {
+      if (index < 0)
+        return 0;
+      if (index >= Files.Count)
+        return Files.Count - 1;
+      return index / ItemsInRow;
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
@@ -202,18 +242,6 @@ namespace MLTGallery.Models
       field = value;
       PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
       return true;
-    }
-
-    private void ImagePanelModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
-    {
-      switch (e.PropertyName)
-      {
-        case nameof(VirtualHeight):
-          Container.Dispatcher.Invoke(new Action(() => 
-            Container.Height = VirtualHeight
-          ));
-          break;
-      }
     }
   }
 }

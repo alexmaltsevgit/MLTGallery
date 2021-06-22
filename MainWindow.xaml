@@ -10,9 +10,8 @@
     <DockPanel LastChildFill="True">
         <StackPanel DockPanel.Dock="Top" HorizontalAlignment="Center" Orientation="Horizontal">
             <Button Background="AliceBlue" Height="50" Click="OpenDirectory">Открыть директорию</Button>
-            <Button Click="Render" Content="render"/>
         </StackPanel>
-        <ScrollViewer x:Name="scroll">
+        <ScrollViewer x:Name="scroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <ItemsControl x:Name="imagePanel">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>

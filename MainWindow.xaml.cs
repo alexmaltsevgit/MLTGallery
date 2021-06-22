@@ -1,19 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Forms;
-using System.Windows.Media.Imaging;
-using System.IO;
+﻿using System.IO;
 using System.Linq;
-using System.Windows.Input;
 using System.Threading;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using Ookii.Dialogs.Wpf;
+using System.Windows;
+using System.Windows.Input;
 using MLTGallery.Models;
-using System.Windows.Data;
-using System.Windows.Media;
+using Ookii.Dialogs.Wpf;
 
 namespace MLTGallery
 {
@@ -48,6 +39,9 @@ namespace MLTGallery
           imageLoadingThread.Abort();
         imagePanelModel.RemoveAllItems();
 
+        if (imagePanelModel.RenderThread != null && imagePanelModel.RenderThread.IsAlive)
+          imagePanelModel.RenderThread?.Abort();
+
         imageLoadingThread = new Thread(() =>
         {
           AddAllImages(folderDialog.SelectedPath);
@@ -72,7 +66,7 @@ namespace MLTGallery
       {
         if (imagePanelModel.Extensions.Contains(file.Extension))
         {
-          imagePanelModel.AddItem(Dispatcher, file);
+          imagePanelModel.AddItem(file);
         }
       }
     }
@@ -84,6 +78,7 @@ namespace MLTGallery
         case ModifierKeys.None:
           if (e.Delta > 0) smoothScrollViewModel.ScrollUp();
           else if (e.Delta < 0) smoothScrollViewModel.ScrollDown();
+          imagePanelModel.Render(smoothScrollViewModel.VerticalOffset);
           break;
 
         case ModifierKeys.Control:
@@ -97,10 +92,10 @@ namespace MLTGallery
     private void ZoomIn()
     {
       double k = 1.5;
-      if (imagePanelModel.ImageWidth * k + imagePanelModel.ImageMargin.Right < GetWindow(window).ActualWidth)
+      if (imagePanelModel.ImageWidth * k + imagePanelModel.ImageMargin < GetWindow(window).ActualWidth)
       {
         imagePanelModel.ImageWidth *= k;
-        imagePanelModel.ChangeHeight(k);
+        //imagePanelModel.MultiplyHeight(k);
       }
     }
 
@@ -110,21 +105,16 @@ namespace MLTGallery
       if (imagePanelModel.ImageWidth > GetWindow(window).ActualWidth / 10)
       {
         imagePanelModel.ImageWidth /= k;
-        imagePanelModel.ChangeHeight(1/k);
+        //imagePanelModel.MultiplyHeight(1 / k);
       }
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-      if (imagePanelModel?.ImageWidth + imagePanelModel?.ImageMargin.Right > e.NewSize.Width)
+      if (imagePanelModel?.ImageWidth + imagePanelModel?.ImageMargin > e.NewSize.Width)
       {
-        imagePanelModel.ImageWidth = e.NewSize.Width - imagePanelModel.ImageMargin.Right;
+        imagePanelModel.ImageWidth = e.NewSize.Width - imagePanelModel.ImageMargin;
       }
-    }
-
-    private void Render(object sender, RoutedEventArgs e)
-    {
-      imagePanelModel.Render(scroll.VerticalOffset);
     }
   }
 };

@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace MLTGallery.Properties {
+namespace MGallery.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
